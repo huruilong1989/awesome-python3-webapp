@@ -1,19 +1,74 @@
 import logging
 import aiomysql
 
+async def create_pool(loop, **kw):
+    logging.info('create database connection pool...')
+    global __pool
+    __pool = await aiomysql.create_pool(
+        host=kw.get('host', 'localhost'),
+        prot=kw.get('port', 3306),
+        user=kw['user'],
+        password=kw['password'],
+        db=kw['db'],
+        charset=kw.get('charset', 'utf8'),
+        autocommit=kw.get('autocommit', True),
+        maxsize=kw.get('maxsize', 10),
+        minsize=kw.get('minsize', 1),
+        loop=loop
+    )
 
-def create_args_string(num):
+async def select(sql, args, size=None):
+    log(sql, args)
+    global __pool
+    with (await __pool) as conn:
+        cur = await conn.cursor(aiomysql.DictCursor)
+        await cur.execute(sql.replace('?', '%s'), args or ())
+        if size:
+            rs = await cur.fetchmany(size)
+        else:
+            rs = await cur.fetchall()
+        await cur.close()
+        logging.info('rows returned: %s' % len(rs))
+        return rs
+
+
+def log(sql):
     pass
 
-
 '''源代码内容
-def create_args_string(num):
-    L = []
-    for n in range(num):
-        L.append('?')
-    return ', '.join(L)
+def log(sql, args=()):
+    logging.info('SQL: %s' % sql)
 '''
 
+async def execute(sql, args):
+    log(sql)
+    with (await __pool) as conn:
+        try:
+            cur = await conn.cursor()
+            await cur.execute(sql.replace('?', '%s'), args)
+            affected = cur.rowcount
+            await cur.close()
+        except BaseException as e:
+            raise
+        return affected
+
+'''
+class User(Model):
+    __table__ = 'users'
+
+    id = IntegerField(primary_key=True)
+    name = StringField()
+
+
+# 创建实例:
+user = User(id=123, name='Michael')
+
+# 存入数据库:
+user.insert()
+
+# 查询所有User对象:
+users = User.findAll()
+'''
 
 class ModelMetaclass(type):
     def __new__(cls, name, bases, attrs):
@@ -58,39 +113,6 @@ class ModelMetaclass(type):
             tableName, '.'.join(map(lambda f: "'%s'=?" % (mappings.get(f).name or f), fields)), primaryKey)
         attrs['__delete__'] = "delete from '%s' where '%s'=?" % (tableName, primaryKey)
         return type.__new__(cls, name, bases, attrs)
-
-
-async def execute(sql, args):
-    log(sql)
-    with (await __pool) as conn:
-        try:
-            cur = await conn.cursor()
-            await cur.execute(sql.replace('?', '%s'), args)
-            affected = cur.rowcount
-            await cur.close()
-        except BaseException as e:
-            raise
-        return affected
-
-
-'''源代码内容
-async def execute(sql,args,autocommit=True):
-    log(sql)
-    async with __pool.get() as conn:
-        if not autocommit:
-            await conn.begin()
-        try:
-            async with conn.cursor(aiomysql.DictCursor) as cur:
-                await cur.execute(sql.replace('?','%s'),args)
-                affected = cur.rowcount
-            if not autocommit:
-                await conn.commit()
-        except BaseException as e:
-            if not autocommit:
-                await conn.rollback()
-            raise 
-        return affected
-'''
 
 
 class Model(dict, metaclass=ModelMetaclass):
@@ -193,7 +215,6 @@ class Model(dict, metaclass=ModelMetaclass):
             logging.warn('failed to remove by primary key: affected rows: %s' % rows)
     '''
 
-
 class Field(object):
     def __init__(self, name, column_type, primary_key, defult):
         self.name = name
@@ -204,12 +225,45 @@ class Field(object):
     def __str__(self):
         return '<%s,%s:%s>' % (self.__class__.__name__, self.column_type, self.name)
 
-
-'''源代码内容
 class StringField(Field):
     def __init__(self, name=None, primary_key=False, default=None, ddl='varchar(100)'):
         super().__init__(name, ddl, primary_key, default)
+
+
+
+
+def create_args_string(num):
+    pass
+
+
+'''源代码内容
+def create_args_string(num):
+    L = []
+    for n in range(num):
+        L.append('?')
+    return ', '.join(L)
 '''
+
+
+'''源代码内容
+async def execute(sql,args,autocommit=True):
+    log(sql)
+    async with __pool.get() as conn:
+        if not autocommit:
+            await conn.begin()
+        try:
+            async with conn.cursor(aiomysql.DictCursor) as cur:
+                await cur.execute(sql.replace('?','%s'),args)
+                affected = cur.rowcount
+            if not autocommit:
+                await conn.commit()
+        except BaseException as e:
+            if not autocommit:
+                await conn.rollback()
+            raise 
+        return affected
+'''
+
 
 '''源代码内容
 class BooleanField(Field):
@@ -218,14 +272,13 @@ class BooleanField(Field):
 '''
 
 
-# class IntegerField:
-#     pass
 
 
+'''
 class IntegerField(Field):
     def __init__(self, name=None, primary_key=False, default=0):
         super().__init__(name, 'bigint', primary_key, default)
-
+'''
 
 '''源代码内容
 class FloatField(Field):
@@ -240,67 +293,16 @@ class TextField(Field):
         super().__init__(name,'text',False,default)
 '''
 
+
+
+
+
+
+
+
+
+
 '''源代码内容
-'''
-
-
-class StringField:
-    pass
-
-'''
-class User(Model):
-    __table__ = 'users'
-
-    id = IntegerField(primary_key=True)
-    name = StringField()
-
-
-# 创建实例:
-user = User(id=123, name='Michael')
-
-# 存入数据库:
-user.insert()
-
-# 查询所有User对象:
-users = User.findAll()
-'''
-
-def log(sql, args=()):
-    logging.info('SQL: %s' % sql)
-
-
-async def create_pool(loop, **kw):
-    logging.info('create database connection pool...')
-    global __pool
-    __pool = await aiomysql.create_pool(
-        host=kw.get('host', 'localhost'),
-        prot=kw.get('port', 3306),
-        user=kw['user'],
-        password=kw['password'],
-        db=kw['db'],
-        charset=kw.get('charset', 'utf8'),
-        autocommit=kw.get('autocommit', True),
-        maxsize=kw.get('maxsize', 10),
-        minsize=kw.get('minsize', 1),
-        loop=loop
-    )
-
-
-async def select(sql, args, size=None):
-    log(sql, args)
-    global __pool
-    with (await __pool) as conn:
-        cur = await conn.cursor(aiomysql.DictCursor)
-        await cur.execute(sql.replace('?', '%s'), args or ())
-        if size:
-            rs = await cur.fetchmany(size)
-        else:
-            rs = await cur.fetchall()
-        await cur.close()
-        logging.info('rows returned: %s' % len(rs))
-        return rs
-
-
 async def execite(sql, args):
     log(sql)
     with (await __pool) as conn:
@@ -312,3 +314,4 @@ async def execite(sql, args):
         except BaseException as e:
             raise
         return affected
+'''

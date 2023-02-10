@@ -37,7 +37,6 @@ async def logger_factory(app, handler):
         logging.info('Request: %s %s' % (request.method, request.path))
         # 继续处理请求
         return (await handler(request))
-
     return logger
 
 
@@ -45,14 +44,13 @@ async def response_factory(app, handler):
     async def response(request):
         # 结果
         r = await handler(request)
-        if isinstance(r,web.StreamResponse):
+        if isinstance(r, web.StreamResponse):
             return r
-        if isinstance(r,bytes):
+        if isinstance(r, bytes):
             resp = web.Response(body=r)
             resp.content_type = 'application/octet-stream'
             return resp
-        if isinstance(r,str):
+        if isinstance(r, str):
             resp = web.Response(body=r.encode('utf-8'))
-            resp.content_type='text/html;charset=utf-8'
+            resp.content_type = 'text/html;charset=utf-8'
             return resp
-
