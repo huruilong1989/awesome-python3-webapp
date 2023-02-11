@@ -76,9 +76,10 @@ _RE_SHA1 = re.compile(r'^[0-9-f]{40}$')
 def user2cookie(user, max_age):
     # build cookie string by: id-expires-sha1
     expires = str(int(time.time() + max_age))
-    s = '%s-%s-%s-%s' % (user.id,user.passwd,expires,_COOKIE_KEY)
-    L = [user.id,expires,hashlib.sha1(s.encode('utf-8')).hexdigest()]
+    s = '%s-%s-%s-%s' % (user.id, user.passwd, expires, _COOKIE_KEY)
+    L = [user.id, expires, hashlib.sha1(s.encode('utf-8')).hexdigest()]
     return '-'.join(L)
+
 
 @post('/api/users')
 def api_register_user(*, email, name, passwd):
@@ -127,19 +128,35 @@ def authenticate(*, email, passwd):
     r.set_cookie(COOKIE_NAME, user2cookie(user, 86400), max_age=86400, httponly=True)
     user.passwd = '******'
     r.content_type = 'application/json'
-    r.body = json.dumps(user,ensure_ascii=False).encode('utf-8')
+    r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')
     return r
 
 
-async def auth_factory(app,handler):
+async def auth_factory(app, handler):
     async def auth(request):
-        logging.info('check user: %s %s' % (request.mothod,request.path))
-        request.__user__=None
+        logging.info('check user: %s %s' % (request.mothod, request.path))
+        request.__user__ = None
         cookie_str = request.cookie.get(COOKIE_NAME)
         if cookie_str:
             user = await cookie2user(cookie_str)
             if user:
                 logging.info('set current user:%s' % user.email)
-                request.__user__=user
+                request.__user__ = user
         return (await handler(request))
+
     return auth
+
+
+@post('/api/blogs')
+def api_create_blog(request, *, name, summary, content):
+    check_admin(request)
+    if not name or not name.strip():
+        raise APIValueError('name', 'name cannot be empty.')
+    if not summary or not summary.strip():
+        raise APIValueError('summary', 'summary cannot be empty.')
+    if not content or not content.strip():
+        raise APIValueError('content', 'content cannot be empty.')
+    blog = Blog(user_id=request.__user__.id, user_name=request.__user__.name, user_image=request.__user__.image,
+                name=name.strip(), summary=summary.strip(), content=content.strip())
+    yield from blog.save()
+    return blog
