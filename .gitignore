@@ -4,6 +4,10 @@ test.db
 test.txt
 sina.html
 
+# pycharm
+.idea
+
+
 # C extensions
 *.so
 
