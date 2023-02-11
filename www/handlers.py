@@ -3,6 +3,7 @@ import re
 
 from aiohttp import web
 
+from www.apis import Page
 from www.config import configs
 from www.coroweb import get, post
 from www.models import User, Blog, next_id
@@ -160,3 +161,22 @@ def api_create_blog(request, *, name, summary, content):
                 name=name.strip(), summary=summary.strip(), content=content.strip())
     yield from blog.save()
     return blog
+
+
+@get('/api/blogs')
+def api_blogs(*, page='1'):
+    page_index = get_page_index(page)
+    num = yield from Blog.findNumber('count(id)')
+    p = Page(num, page_index)
+    if num == 0:
+        return dict(page=p, blogs=())
+    blogs = yield from Blog.findAll(orderBy='created_at desc', limit=(p.offset, p.limit))
+    return dict(page=p, blogs=blogs)
+
+
+@get('/manage/blogs')
+def manage_blogs(*, page='1'):
+    return {
+        '__template__': 'manage_blogs.html',
+        'page_index' : get_page_index(page)
+    }
