@@ -40,7 +40,7 @@ def api_get_users(*, page='1'):
         u.passwd = '******'
     return dict(page=p, users=users)
 
-
+# 解密cooloe:
 async def cookie2user(cookieStr):
     '''
     Parse cookie and load user if cookie is valid.
