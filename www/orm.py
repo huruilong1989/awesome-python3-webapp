@@ -265,11 +265,11 @@ async def execute(sql,args,autocommit=True):
 '''
 
 
-'''源代码内容
+
 class BooleanField(Field):
     def __init__(self,name=None,default=False):
         super().__init__(name,'boolean',False,default)
-'''
+
 
 
 
@@ -280,12 +280,12 @@ class IntegerField(Field):
         super().__init__(name, 'bigint', primary_key, default)
 '''
 
-'''源代码内容
+
 class FloatField(Field):
     def __init__(self,name=None,primary_key=False,default=0.0):
         super().__init__(name,'real',primary_key,default)
     pass
-'''
+
 '''源代码内容
 
 class TextField(Field):
